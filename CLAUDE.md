@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
+> **Ruflo v3.10** (2026-05-31) — Stable release with unified graph intelligence, rvagent integration, and Windows compatibility.
 > 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -767,10 +767,19 @@ V3 includes the RuVector Intelligence System:
 - **Flash Attention**: 2.49x-7.47x speedup
 
 The 4-step intelligence pipeline:
-1. **RETRIEVE** — Fetch relevant patterns via HNSW
+1. **RETRIEVE** — Fetch relevant patterns via HNSW (now with **graph backbone** via ADR-130)
 2. **JUDGE** — Evaluate with verdicts (success/failure)
 3. **DISTILL** — Extract key learnings via LoRA
 4. **CONSOLIDATE** — Prevent catastrophic forgetting via EWC++
+
+### ADR-130: Graph Intelligence Integration (v3.10+)
+Unifies four parallel graph layers into a canonical graph substrate on AgentDB sql.js with:
+- **Temporal semantics** for causal relationships
+- **PQ-compressed embeddings** for efficient storage
+- **Complexity-budgeted queries** for safe traversal
+- **6-algorithm pathfinder**: PageRank, mincut, spectral, temporal centrality, component churn, witness divergence
+- Phases: v3.9.0 (P1-P3), v3.10.0 (P4-P6) — fully implemented
+- Details: `/v3/docs/adr/ADR-130-graph-intelligence-integration.md`
 
 ## Embeddings Package (v3.0.0-alpha.12)
 
@@ -829,6 +838,9 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=~/.swarm/memory.db
+
+# Precedence for memory subcommands: --path flag > CLAUDE_FLOW_DB_PATH > default
 ```
 
 ## Doctor Health Checks
@@ -1099,6 +1111,43 @@ export const LIVE_REGISTRY_CID = 'NEW_CID_FROM_PINATA';
 # Verify new registry is accessible
 curl -s "https://gateway.pinata.cloud/ipfs/{NEW_CID}" | jq '.totalPlugins'
 ```
+
+## Recent Architecture Decisions (ADRs) & Improvements
+
+### Major Recent ADRs
+
+| ADR | Version | Status | Description |
+|-----|---------|--------|-------------|
+| **ADR-130** | v3.10 | ✅ Complete (P1-P6) | Graph intelligence integration — unified graph substrate with temporal semantics, 6-algorithm pathfinder, PQ compression |
+| **ADR-129** | v3.8 | ✅ Complete | Full rvagent integration across 4 phases |
+| **ADR-128** | v3.7 | ✅ Complete | Init bundle reduce + refactor — 9 orphan files deleted, bundle optimized |
+
+### Improvement Roadmap (v3.8.0+)
+
+See `/docs/IMPROVEMENT-ROADMAP.md` for 10 prioritized improvements beyond ADR-130:
+
+1. **P1** — Fix 4 skipped integration tests (#1872) — HybridBackend, SwarmCoordinator, workflow resume
+2. **P2** — Witness manifest drift (#2047) — rebuild before verify check
+3. **P3** — Real-model validation for SOTA comparator (M5, #2125)
+4. **P4** — `CLAUDE_FLOW_DB_PATH` env var + `--path` flag (#2105) — ✅ Environment variables updated above
+5. **P5** — Skill synthesis loop (ADR-113/R-3) — emit shareable skills from trajectories
+6. **P6** — `ruflo` branding cleanup (#1861, #1858) — remove claude-flow strings
+7. **P7** — Windows daemon persistence (#1766) — detached child process
+8. **P8** — Hive-mind load validation (#2030) — concurrent ConsensusEngine test
+9. **P9** — @noble/ed25519 v2 → v3 upgrade (#2032) — supply chain
+10. **P10** — Plugin health audit — promote graph plugins to `official` tier
+
+### Recent Platform Improvements
+
+**Windows Compatibility (v3.6.13+):**
+- Node shim for cross-platform compatibility (commit cdd5308)
+- Init-time platform detection
+- Pending: daemon persistence fix (#1766)
+
+**Security Enhancements:**
+- CVE patches: shell injection, SSRF fixes (#2114)
+- Bounds-check for decodeEmbedding (#2144)
+- Env-var-precedence CI guards (#2144)
 
 ## Optional Plugins (20 Available)
 
