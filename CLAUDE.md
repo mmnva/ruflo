@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
+> **Ruflo v3.10.3** (2026-05-26) — Stable release with version lockstep enforcement, graph intelligence backend, and cross-platform support.
 > 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **All packages locked at:** `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -14,6 +14,16 @@
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
+
+### Version Lockstep Requirement (Critical)
+
+**All three packages MUST stay in version lockstep:**
+- `@claude-flow/cli` and `claude-flow` and `ruflo` must always be at the same version
+- Enforced via CI guard: `scripts/audit-umbrella-version-lockstep.mjs`
+- When bumping any package version, bump ALL THREE together
+- Publishing must be atomic for all three packages
+- Wrapper dep range: `ruflo` depends on `@claude-flow/cli` with `^` range that covers the CLI's version
+- See "Publishing to npm" section for strict ordering and verification
 
 ## File Organization
 
@@ -342,6 +352,18 @@ This project is configured with Claude Flow V3 (Anti-Drift Defaults):
 - **Memory Backend**: hybrid (SQLite + AgentDB)
 - **HNSW Indexing**: Enabled (150x-12,500x faster)
 - **Neural Learning**: Enabled (SONA)
+
+### Recent Updates (v3.10.3 — 2026-05-26)
+
+| Feature | Status | Issue |
+|---------|--------|-------|
+| Three-way version lockstep + CI guard | ✅ Implemented | #2151 |
+| Graph intelligence backend (ADR-130) | ✅ Implemented | New |
+| rvagent full integration (ADR-129) | ✅ Implemented | #2123 |
+| CLAUDE_FLOW_DB_PATH configuration | ✅ Implemented | #2105 |
+| Windows-compatible cross-platform support | ✅ Implemented | #2132 |
+| Security: bounds-check + env-var precedence | ✅ Fixed | #security-review |
+| Project-wide quality sweep (no dead code) | ✅ Complete | #2139 |
 
 ## V3 CLI Commands (26 Commands, 140+ Subcommands)
 
@@ -815,6 +837,7 @@ Features:
 # Configuration
 CLAUDE_FLOW_CONFIG=./claude-flow.config.json
 CLAUDE_FLOW_LOG_LEVEL=info
+CLAUDE_FLOW_DB_PATH=./data/claude-flow.db  # Database path (NEW — #2105)
 
 # Provider API Keys
 ANTHROPIC_API_KEY=sk-ant-...
