@@ -829,6 +829,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # Custom path for memory database (precedence: flag > env var > default)
 ```
 
 ## Doctor Health Checks
@@ -923,6 +924,34 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 | SONA Learning | Active | Pattern matching + trajectory recording |
 | ReasoningBank | Active | Pattern storage with file persistence |
 | AgentDB sql.js | Active | SQLite with vector_indexes table |
+
+## Team Gateway & Governance
+
+### Team Gateway Checklist
+
+For teams running Claude Code / Codex agent workflows through a shared gateway or proxy, follow the governance gates documented in [docs/TEAM-GATEWAY-CHECKLIST.md](docs/TEAM-GATEWAY-CHECKLIST.md):
+
+1. **Before-Merge Gates**: Lint, type-check, unit/smoke tests, witness manifest, semver bump
+2. **Dual-Mode Handoff**: Store designs in `collaboration` namespace before switching platforms
+3. **Memory Namespace Sharing**: Use typed namespaces (`collaboration`, `patterns`, `tasks`, `security`)
+4. **Witness Manifest**: Every merge to main requires signed verification entry
+
+### Witness Manifest & Verification
+
+Each merge to main must include a signed witness manifest entry for distribution auditing:
+
+```bash
+# After merge, sign the current dist
+npx ruflo@latest sign --message "merge: #<PR> — <one-line description>"
+
+# After npm install, verify the dist matches audited footprint
+npx ruflo@latest verify
+# Expected: "Verification passed — dist matches audited footprint"
+```
+
+Witness manifests are stored in the `verification/` directory per operating system (linux, macos, windows) with checksums and capability inventories. CI enforces manifest updates before merging to main.
+
+---
 
 ## Publishing to npm
 
