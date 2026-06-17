@@ -829,6 +829,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # Override for memory store, retrieve, search commands
 ```
 
 ## Doctor Health Checks
