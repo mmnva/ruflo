@@ -1,8 +1,24 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
+> **Ruflo v3.10.3** (2026-06-21) — Stable release with graph intelligence backend, rvagent integration, and cross-platform compatibility.
 > 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
+> **Recent:** ADR-130 (graph intelligence P1-P6), ADR-129 (rvagent full integration), Windows hook shim, CLAUDE_FLOW_DB_PATH support
+
+## v3.10 Updates (2026-05-23 → 2026-06-21)
+
+### New Features & Fixes
+- **ADR-130**: Unified graph intelligence backend (P1-P6) — dynamic knowledge graph with pattern learning
+- **ADR-129**: Full rvagent integration (4 phases) — hierarchical reasoning agents
+- **Windows Compatibility**: Node shim + init-time platform detection for cross-platform hooks (#2132)
+- **Security Hardening**: v3.10 bounds-check decodeEmbedding, env-var-precedence CI guard (#2144)
+- **Database Configuration**: `CLAUDE_FLOW_DB_PATH` environment variable for custom database locations
+- **Version Lockstep**: Three-way version management + CI guard for dependency consistency (#2151)
+
+### Compatibility Notes
+- **Windows**: Hooks now fully compatible with WSL2 and native Windows
+- **Legacy Databases**: Memory entries now accept NULL status for backward compatibility
+- **Package Dependencies**: All three packages (`@claude-flow/cli`, `claude-flow`, `ruflo`) must be version-synced
 
 ## Behavioral Rules (Always Enforced)
 
@@ -815,6 +831,7 @@ Features:
 # Configuration
 CLAUDE_FLOW_CONFIG=./claude-flow.config.json
 CLAUDE_FLOW_LOG_LEVEL=info
+CLAUDE_FLOW_DB_PATH=./data/claude-flow.db          # v3.10+ database location override
 
 # Provider API Keys
 ANTHROPIC_API_KEY=sk-ant-...
