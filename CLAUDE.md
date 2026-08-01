@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **Ruflo v3.10.3** (2026-05-26) — Stable release with graph intelligence backend (ADR-130), Windows hook support, and CI guard enforcement.
+> 6,000+ commits, 323 MCP tools, 45 CLI commands, 16 agent roles + custom types, 19 AgentDB controllers, 33 plugins.
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -100,6 +100,86 @@ mcp__ruv-swarm__swarm_init({
   strategy: "specialized"
 })
 ```
+
+## CI Guards & Quality Enforcement
+
+**Automated CI audits (ADR-125, ADR-130) enforce three critical invariants:**
+
+### 1. Version Lockstep Guard
+- **Script:** `scripts/audit-umbrella-version-lockstep.mjs`
+- **Enforcement:** `@claude-flow/cli`, `claude-flow`, and `ruflo` MUST have identical versions
+- **Enforcement:** ruflo's `@claude-flow/cli` dep range must cover the actual CLI version
+- **CI Job:** `.github/workflows/v3-ci.yml` → `wrapper-dep-ranges-audit`
+- **Status:** Strict (blocks merge on failure)
+
+### 2. Windows Cross-Platform Audit
+- **Script:** `scripts/audit-plugin-hooks-cross-platform.mjs`
+- **Detects:** `/bin/bash` literals, POSIX-only pipelines, `.sh` scripts in `hooks.json`
+- **Marked Exception:** Plugins with `_platform: "posix"` marker skip pattern scan
+- **CI Job:** `plugin-hooks-cross-platform-audit`
+- **Status:** Strict (no continue-on-error)
+- **Related:** ruflo-hook.cjs (Node.js shim for Windows compatibility)
+
+### 3. Environment Variable Precedence Audit
+- **Script:** `scripts/audit-env-var-precedence.mjs`
+- **Enforcement:** CLI `--flag` must be documented to take precedence over `CLAUDE_FLOW_*` / `RUFLO_*` env vars
+- **Prevents:** Silent env-var-ignoring-flag bugs
+- **Allow-list:** CI knobs, credentials, process-internal signals exempted
+- **CI Job:** `env-var-precedence-audit`
+- **Status:** Strict
+
+### 4. Memory Artifact Cleanup Smoke
+- **Script:** `scripts/smoke-memory-no-stray-db.mjs`
+- **Verification:** vitest.setup.ts wipes stray DB artifacts after `npm test`
+- **CI Job:** `memory-no-stray-db-smoke`
+- **Status:** Strict (non-optional)
+
+**All CI audits:**
+- Run on every push + PR
+- Set to strict (no silent pass)
+- Block merge on failure
+- Documented escape-hatches only via explicit allow-lists in script comments
+
+## Windows Compatibility (v3.10+)
+
+### Hook Shim Support
+
+Ruflo now supports Windows natively via a Node.js shim (`ruflo-hook.cjs`):
+
+**Deployment:** Automatically deployed to `.claude/helpers/ruflo-hook.cjs` on `ruflo init`
+
+**Features:**
+- Cross-platform hook execution (replaces `/bin/bash` dependency)
+- Graceful fallback: prefers local ruflo binary, then `npx --prefer-offline`
+- Always exits 0 (failures logged, not fatal)
+- Reads stdin JSON (hook event data)
+
+**Plugin Hook Compatibility:**
+
+Hooks marked with `_platform: "posix"` are exempt from the cross-platform audit:
+
+```json
+{
+  "name": "my-posix-hook",
+  "_platform": "posix",
+  "command": "/bin/bash -c 'echo posix-only'"
+}
+```
+
+**New marker required** for any new POSIX-exclusive hooks to pass CI.
+
+### Known Limitations (v3.10)
+
+- Hook shims don't support nested shell quoting (cmd.exe double-wrap issue)
+  - Tracked in [#2141 T5](https://github.com/ruvnet/ruflo/issues/2141)
+  - Workaround: use `_platform: posix` marker for complex shell logic
+- Better-sqlite3 bridge may not build on all Windows environments
+  - Fallback to sql.js works automatically
+  - Set `CLAUDE_FLOW_DISABLE_BRIDGE=1` to force fallback
+
+### Windows CI Matrix
+
+CI runs on ubuntu-latest, macos-latest, and windows-latest for all smoke tests that support Windows.
 
 ## Dual-Mode Collaboration (Claude Code + Codex)
 
@@ -772,6 +852,29 @@ The 4-step intelligence pipeline:
 3. **DISTILL** — Extract key learnings via LoRA
 4. **CONSOLIDATE** — Prevent catastrophic forgetting via EWC++
 
+### Graph Intelligence Backend (ADR-130, v3.9.0+)
+
+Unified graph substrate for agent knowledge on AgentDB sql.js with temporal semantics, PQ-compressed embeddings, and complexity-budgeted queries.
+
+**New Schema:**
+- `graph_edges` table: source_id, target_id, relation, confidence, decay_rate, last_reinforced, witness_id, embedding_ref
+- 4 indexes: source_id, target_id, relation, last_reinforced
+- Int8 global-scalar PQ (400 bytes/384-dim, 392.6 KB/1000 edges)
+
+**New MCP Tools:**
+- `agentdb_graph-query` — k-hop, pagerank, semantic search with complexity budgets
+- `agentdb_graph-pathfinder` — 6 algorithms (PPR, mincut, spectral-sparsify, temporal-centrality, component-churn, witness-divergence)
+
+**New SONA Hooks:**
+- `hooks_intelligence_trajectory-step` — fire-and-forget 'trajectory-caused' edge
+- `hooks_post-task` — fire-and-forget 'reinforced-by' edge on task success
+
+**Benchmarks (6/6 targets met):**
+- Write throughput: 2345 ops/sec (>500 target ✓)
+- k-hop depth=1: p99=4.9ms (<10ms target ✓)
+- k-hop depth=3: p99=0.1ms (<50ms target ✓)
+- PQ encode/decode: <1ms / <0.5ms targets ✓
+
 ## Embeddings Package (v3.0.0-alpha.12)
 
 Features:
@@ -826,9 +929,32 @@ CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_HOST=localhost
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 
-# Memory
+# Memory (ADR-125 precedence: --path flag > CLAUDE_FLOW_DB_PATH > default root)
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=/custom/path/to/db       # Optional: override DB location
+CLAUDE_FLOW_DISABLE_BRIDGE=1                  # Optional: force sql.js fallback (legacy DB testing)
+
+# Advanced (CI/testing only, not for production)
+# CLAUDE_FLOW_SKIP_NPX=1                      # Skip npx fallback in hook shim (smoke tests)
+```
+
+### Memory Subcommand Path Precedence (v3.7.0+)
+
+All memory subcommands (`store`, `retrieve`, `search`, `list`, `delete`, `stats`) support three-tier path resolution:
+
+1. **CLI `--path` flag** (highest priority) — explicit override
+2. **`CLAUDE_FLOW_DB_PATH` env var** — project-level default
+3. **Project root** (default) — `.swarm/memory.db`
+
+Example:
+```bash
+# Use explicit path via flag
+npx ruflo@latest memory search --query "auth" --path /tmp/alt.db
+
+# Use env var to redirect all commands
+export CLAUDE_FLOW_DB_PATH=~/.claude-flow-custom/memory.db
+npx ruflo@latest memory stats    # uses $CLAUDE_FLOW_DB_PATH
 ```
 
 ## Doctor Health Checks
