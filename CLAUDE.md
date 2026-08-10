@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **Ruflo v3.10.3** (2026-05-26) — Stable release with graph intelligence, rvagent integration, and cross-platform compatibility.
+> 6,000+ commits, 323 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 33 plugins.
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.0`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -343,16 +343,16 @@ This project is configured with Claude Flow V3 (Anti-Drift Defaults):
 - **HNSW Indexing**: Enabled (150x-12,500x faster)
 - **Neural Learning**: Enabled (SONA)
 
-## V3 CLI Commands (26 Commands, 140+ Subcommands)
+## V3 CLI Commands (45 Top-Level Commands, 140+ Subcommands)
 
-### Core Commands
+### Core Commands (10 Sync + 35 Lazy Loaders)
 
 | Command | Subcommands | Description |
 |---------|-------------|-------------|
 | `init` | 4 | Project initialization with wizard, presets, skills, hooks |
 | `agent` | 8 | Agent lifecycle (spawn, list, status, stop, metrics, pool, health, logs) |
 | `swarm` | 6 | Multi-agent swarm coordination and orchestration |
-| `memory` | 11 | AgentDB memory with vector search (150x-12,500x faster) |
+| `memory` | 11 | AgentDB memory with vector search (150x-12,500x faster); includes CLAUDE_FLOW_DB_PATH flag |
 | `mcp` | 9 | MCP server management and tool execution |
 | `task` | 6 | Task creation, assignment, and lifecycle |
 | `session` | 7 | Session state management and persistence |
@@ -797,17 +797,58 @@ Features:
 - `crdt` — Conflict-free replicated data types
 - `quorum` — Configurable quorum-based
 
-## V3 Performance Targets
+## Recent Major Features (v3.9-v3.10)
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| HNSW Search | 150x-12,500x faster | **Implemented** (persistent) |
-| Memory Reduction | 50-75% with quantization | **Implemented** (3.92x Int8) |
-| SONA Integration | Pattern learning | **Implemented** (ReasoningBank) |
-| Flash Attention | 2.49x-7.47x speedup | In progress |
-| MCP Response | <100ms | Achieved |
-| CLI Startup | <500ms | Achieved |
-| SONA Adaptation | <0.05ms | In progress |
+### ADR-130: Unified Graph Intelligence Backend
+
+**Shipped in v3.9.0 (phases 1-3) and v3.10.0 (phases 4-6)**
+
+Unifies four parallel graph layers (AgentDB edges, ruflo-graph-intelligence, knowledge-graph adapter, SONA trajectory) into canonical sql.js backend on AgentDB with:
+
+- **schema**: `graph_edges` table (source, target, relation, confidence, decay_rate, witness_id, embedding_ref)
+- **embedding**: Int8 global-scalar PQ (400 bytes/384-dim)
+- **queries**: k-hop (recursive CTE), PageRank (PPR), semantic (cosine)
+- **pathfinder**: 6 algorithms (PPR, dynamic-mincut, spectral-sparsify, temporal-centrality, component-churn, witness-divergence)
+- **hooks**: fire-and-forget trajectory-to-graph (SONA integration)
+- **benchmark**: 6/6 performance targets met (2345 ops/sec write, 4.9ms k-hop p99)
+- **MCP tools**: `agentdb_graph-query`, `agentdb_graph-pathfinder`
+
+### ADR-129: RVAgent Full Integration
+
+**Shipped in v3.8.0**
+
+Wasm-based agents as first-class swarm participants:
+
+- **Phase 1**: JsModelProvider routes WasmAgent through v3 provider system (Claude, OpenRouter, Ollama)
+- **Phase 2**: `wasm_agent_compose` MCP tool with 314-tool unlock (allowlist + destructive-tool gate)
+- **Phase 3**: 16 new MCP tools (10 gallery CRUD + 6 introspection); AIDefence gate on `import_custom`
+- **Phase 4**: Plugin bridge — `includePlugins` param in compose, auto-loads skill exports
+- **Security**: Destructive tools (`*_delete`, `*_shutdown`, `federation_*`) require explicit `mcpToolsAllowDestructive` flag
+
+### Team Gateway Checklist (#2058)
+
+Before merging feature branches with dual-mode (Claude + Codex) collaboration:
+
+- Verify memory namespace sharing between platforms
+- Check witness manifest entries for merged commits
+- Confirm before-merge gates: architecture review, security audit, test pass
+- Document handoff points (Claude → Codex → Claude → merge)
+
+## V3 Performance Targets (v3.10.3)
+
+| Metric | Target | Status | Details |
+|--------|--------|--------|---------|
+| HNSW Search | 150x-12,500x faster | **Implemented** | Persistent SQLite + vector_indexes |
+| Memory Reduction | 50-75% with quantization | **Implemented** | 3.92x Int8 compression |
+| SONA Integration | Pattern learning | **Implemented** | ReasoningBank + trajectory hooks |
+| Flash Attention | 2.49x-7.47x speedup | In progress | Partial in @xenova/transformers |
+| Graph Write Throughput | 2345 ops/sec (>500 target) | **Achieved** | ADR-130 benchmark ✓ |
+| Graph k-hop p99 | 4.9ms depth=1 (<10ms) | **Achieved** | ADR-130 benchmark ✓ |
+| PQ Encode p99 | 0.063ms (<1ms) | **Achieved** | ADR-130 benchmark ✓ |
+| PQ Decode p99 | 0.031ms (<0.5ms) | **Achieved** | ADR-130 benchmark ✓ |
+| MCP Response | <100ms | **Achieved** | 323 tools, avg 50ms |
+| CLI Startup | <500ms | **Achieved** | Lazy-loader architecture |
+| SONA Adaptation | <0.05ms | In progress | Sub-50µs targets for v3.11 |
 
 ## Environment Variables
 
@@ -826,9 +867,14 @@ CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_HOST=localhost
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 
-# Memory
+# Memory (ADR-125 / #2105)
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./custom/path/to/memory.db  # Override memory DB location (flag > env > default)
+
+# Bridges & Hooks
+CLAUDE_FLOW_DISABLE_BRIDGE=1  # Force sql.js fallback (skip better-sqlite3)
+RUFLO_HOOK_SKIP_NPX=1         # Skip npx fallback in hook shim (CI optimization)
 ```
 
 ## Doctor Health Checks
@@ -844,6 +890,32 @@ Run `npx claude-flow@v3alpha doctor` to check:
 - MCP servers
 - Disk space
 - TypeScript installation
+
+## CI Audit Guards (Anti-Drift — ADR-125 / #2127 / #2132)
+
+Three new guardrails prevent regressions from reaching npm:
+
+| Guard | File | Purpose | Violations |
+|-------|------|---------|-----------|
+| **Version Lockstep** | `scripts/audit-wrapper-dep-ranges.mjs` | Ensures `@claude-flow/cli`, `claude-flow`, `ruflo` versions are identical | Caught #2127, #2151 |
+| **Env-Var Precedence** | `scripts/audit-env-var-precedence.mjs` | CLI flags override env vars; prevent silent flag ignoring | Flags without doc |
+| **Plugin Hooks X-Plat** | `scripts/audit-plugin-hooks-cross-platform.mjs` | No `/bin/bash` literals, POSIX pipelines, `.sh` scripts in Windows | /bin/bash, \| jq, .sh files |
+
+All three fail closed (exit 1 on violation). Wired into `.github/workflows/v3-ci.yml` `dep-audit` job.
+
+### Plugin Hooks: Windows Compatibility
+
+Plugin hooks.json files that are POSIX-only must be marked:
+```json
+{
+  "_platform": "posix",
+  "hooks": {...}
+}
+```
+
+This exempts them from the cross-platform audit. A corresponding `.cjs` shim must exist in the same directory. The Windows shim is auto-deployed to `.claude/helpers/ruflo-hook.cjs` on `ruflo init`.
+
+**Windows smoke tests** verify the shim: `smoke-ruflo-hook-cjs.mjs`, `smoke-windows-init-hooks.mjs`, `smoke-windows-hook-execution.mjs`.
 
 ## Quick Setup
 
@@ -926,22 +998,30 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 
 ## Publishing to npm
 
-### Versioning policy (stable releases — alpha series ended at 3.7.0-alpha.81, 2026-05-23)
+### Versioning Policy (Stable Semver — ADR-125 / #2151)
 
-- **From 3.7.0 onward we ship stable semver**, NOT alpha pre-releases.
-- Bump rules (semver discipline):
-  - **PATCH** (3.7.0 → 3.7.1): bug fixes only, no API change, no schema change
-  - **MINOR** (3.7.0 → 3.8.0): backward-compatible additions (new MCP tool, new flag, new agent type)
+**Alpha series ended at 3.7.0-alpha.81 (2026-05-23). From 3.7.0 onward: STABLE SEMVER ONLY.**
+
+- **Bump rules (semver discipline)**:
+  - **PATCH** (3.10.0 → 3.10.1): bug fixes only, no API change, no schema change
+  - **MINOR** (3.10.0 → 3.11.0): backward-compatible additions (new MCP tool, new flag, new agent type)
   - **MAJOR** (3.x → 4.0.0): breaking change in CLI surface, MCP tool signature, file layout, or default behavior
-- Default tag is `latest` (no `--tag alpha`). The `alpha` and `v3alpha` dist-tags continue to exist for historical compatibility — point them at the same version as `latest`.
-- Never publish a pre-release (`-alpha.N`, `-beta.N`, `-rc.N`) unless the user explicitly asks for a pre-release flow.
+- **Never publish pre-releases** (`-alpha.N`, `-beta.N`, `-rc.N`) unless explicitly requested by user
+- **Default tag is `latest`** (no `--tag alpha`). Legacy `alpha` and `v3alpha` dist-tags continue pointing to latest stable for backward compat
 
-### Publishing Rules
+### Publishing Rules (THREE-WAY LOCKSTEP — ADR-125)
 
-- MUST publish ALL THREE packages when publishing CLI changes: `@claude-flow/cli`, `claude-flow`, AND `ruflo`
-- MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
-- Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
+**CRITICAL: Violation causes version mismatch crashes (e.g., #2127 / #2151)**
+
+- MUST publish ALL THREE packages together when publishing CLI changes:
+  - `@claude-flow/cli`
+  - `claude-flow` (umbrella)
+  - `ruflo` (wrapper — NEVER skip)
+- MUST bump all three to IDENTICAL versions (3.10.2, not 3.10.2 / 3.10.1 / 3.10.0)
+- MUST update ALL dist-tags for ALL THREE packages (latest + alpha + v3alpha all → same version)
+- Publish order: `@claude-flow/cli` → `claude-flow` → `ruflo` (dependencies flow left-to-right)
 - MUST run verification for ALL THREE before telling user publishing is complete
+- **CI GUARD**: `scripts/audit-wrapper-dep-ranges.mjs` (wired into `dep-audit` job) catches lockstep violations before they ship
 
 ```bash
 # Replace 3.7.1 below with your chosen stable version (patch/minor/major per the rules above)
@@ -1131,6 +1211,7 @@ npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
+| `ruflo-graph-intelligence` | 3.10.0 | ADR-130 unified graph backend (queries, pathfinder, SONA hooks) |
 | `@claude-flow/plugin-agentic-qe` | 3.0.0-alpha.4 | Agentic quality engineering integration |
 | `@claude-flow/plugin-prime-radiant` | 0.1.5 | Prime Radiant intelligence integration |
 | `@claude-flow/plugin-gastown-bridge` | 3.0.0-alpha.1 | Gastown bridge protocol integration |
@@ -1142,6 +1223,8 @@ npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
 | `@claude-flow/plugin-cognitive-kernel` | 0.1.0 | Core cognitive processing kernel |
 | `@claude-flow/plugin-quantum-optimizer` | 0.1.0 | Quantum-inspired optimization algorithms |
 | `@claude-flow/plugin-hyperbolic-reasoning` | 0.1.0 | Hyperbolic space reasoning for hierarchical data |
+| `@claude-flow/plugin-rvagent-integration` | 3.8.0 | ADR-129 RVAgent composer with plugin bridging |
+| `ruflo-workflows` | 3.10.0 | Event-driven workflow automation with message queues |
 
 ### Domain-Specific Plugins
 
