@@ -332,7 +332,7 @@ TodoWrite({ todos: [
 - Configuration changes
 - Quick questions/exploration
 
-## CI Audit Guards (ADR-125 / ADR-130)
+## CI Audit Guards
 
 Project-wide audit scripts guard against common regressions and configuration drift. All audits are strict (exit code 1 on failure) and integrated into `.github/workflows/v3-ci.yml`:
 
@@ -886,7 +886,7 @@ npx claude-flow@v3alpha daemon start
 npx claude-flow@v3alpha doctor --fix
 ```
 
-## Windows Support (ADR-132)
+## Windows Support
 
 Ruflo now runs natively on Windows 10/11 with full hook support via cross-platform Node.js shim.
 
@@ -1213,7 +1213,7 @@ npx claude-flow@v3alpha plugins publish
 
 Registry source: IPFS via Pinata (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834`)
 
-## Team Coordination Checklist (ADR-058)
+## Team Coordination Checklist
 
 For teams using dual-mode Claude/Codex orchestration:
 
@@ -1231,7 +1231,7 @@ For teams using dual-mode Claude/Codex orchestration:
 
 ## Security Fixes (v3.10.x)
 
-**Embedding Quantization (ADR-144):**
+**Embedding Quantization:**
 - `decodeEmbedding()` now bounds-checks dims field from blob header
 - Rejects: dims=0, dims > 8192, truncated payloads
 - Protects against DoS via crafted inline: blobs
