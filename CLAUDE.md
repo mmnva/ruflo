@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **Ruflo v3.10.x** (2026-05-26) — Stable release with Windows support, security hardening, and CI guards.
+> 6,000+ commits, 323 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 33 native plugins.
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -332,6 +332,23 @@ TodoWrite({ todos: [
 - Configuration changes
 - Quick questions/exploration
 
+## CI Audit Guards (ADR-125 / ADR-130)
+
+Project-wide audit scripts guard against common regressions and configuration drift. All audits are strict (exit code 1 on failure) and integrated into `.github/workflows/v3-ci.yml`:
+
+| Audit | Script | Purpose | Issue |
+|-------|--------|---------|-------|
+| **Version Lockstep** | `scripts/audit-umbrella-version-lockstep.mjs` | Enforces three-way version sync (@claude-flow/cli, claude-flow, ruflo) + wrapper dep ranges | #2151 |
+| **Env Var Precedence** | `scripts/audit-env-var-precedence.mjs` | Guards env var reads against missing CLI-flag documentation | #2144 |
+| **Cross-Platform Hooks** | `scripts/audit-plugin-hooks-cross-platform.mjs` | Detects Windows-incompatible patterns in plugin hooks.json (no /bin/bash, no POSIX pipes) | #2132 |
+| **Wrapper Dep Ranges** | `scripts/audit-wrapper-dep-ranges.mjs` | Prevents stale alpha-tagged wrapper dependencies | #2127 |
+
+**Key Rules:**
+- All three packages (@claude-flow/cli, claude-flow, ruflo) MUST have identical versions
+- ruflo's @claude-flow/cli dep range MUST include the actual cli version
+- No env var reads without corresponding CLI-flag precedence documentation
+- All plugin hooks.json commands must be cross-platform (Windows-safe)
+
 ## Project Configuration
 
 This project is configured with Claude Flow V3 (Anti-Drift Defaults):
@@ -342,6 +359,7 @@ This project is configured with Claude Flow V3 (Anti-Drift Defaults):
 - **Memory Backend**: hybrid (SQLite + AgentDB)
 - **HNSW Indexing**: Enabled (150x-12,500x faster)
 - **Neural Learning**: Enabled (SONA)
+- **Cross-Platform**: Windows support via ruflo-hook.cjs shim
 
 ## V3 CLI Commands (26 Commands, 140+ Subcommands)
 
@@ -826,10 +844,18 @@ CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_HOST=localhost
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 
-# Memory
+# Memory (ADR-125)
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=/path/to/custom/db  # Optional: custom database path (CLI --path flag takes precedence)
+
+# Windows Hooks (ADR-132)
+RUFLO_HOOK_SKIP_NPX=1  # Optional: skip npx fallback in ruflo-hook.cjs for faster CI
 ```
+
+**Env Var Precedence:**
+- All `CLAUDE_FLOW_*` and `RUFLO_*` env vars MUST have corresponding CLI flags documented (audited via `audit-env-var-precedence.mjs`)
+- CLI flags always take precedence: `--path /custom/path` overrides `CLAUDE_FLOW_DB_PATH`
 
 ## Doctor Health Checks
 
@@ -859,6 +885,27 @@ npx claude-flow@v3alpha daemon start
 # Run doctor
 npx claude-flow@v3alpha doctor --fix
 ```
+
+## Windows Support (ADR-132)
+
+Ruflo now runs natively on Windows 10/11 with full hook support via cross-platform Node.js shim.
+
+**Hook Deployment:**
+- `plugins/ruflo-core/scripts/ruflo-hook.cjs` — Windows-compatible Node.js port of bash hook shim
+- Deployed to `.claude/helpers/ruflo-hook.cjs` on every `npx claude-flow init` (both source copy and fallback generate)
+- Handles all subcommands (pre-edit, post-edit, pre-task, post-task, pre-command, post-command)
+- Priority: local ruflo binary → npx fallback (skippable via `RUFLO_HOOK_SKIP_NPX=1`)
+
+**Plugin Hooks:**
+- All plugin hooks.json `command` fields are audited for Windows incompatibility (`audit-plugin-hooks-cross-platform.mjs`)
+- Forbidden patterns: `/bin/bash`, `/bin/sh` literals, POSIX-only pipes (`|`, `xargs -0`), `.sh` scripts
+- Plugin hooks with `_platform: "posix"` marker exempt from audit (must have working Windows shim)
+
+**Testing:**
+- Three new smoke tests on ubuntu-latest + macos-latest + windows-latest:
+  - `smoke-ruflo-hook-cjs.mjs` — shim control flow
+  - `smoke-windows-init-hooks.mjs` — init deploys Node shim
+  - `smoke-windows-hook-execution.mjs` — end-to-end hook fire (exit != 126)
 
 ## Claude Code vs MCP Tools
 
@@ -1166,10 +1213,38 @@ npx claude-flow@v3alpha plugins publish
 
 Registry source: IPFS via Pinata (`QmXbfEAaR7D2Ujm4GAkbwcGZQMHqAMpwDoje4583uNP834`)
 
+## Team Coordination Checklist (ADR-058)
+
+For teams using dual-mode Claude/Codex orchestration:
+
+**Before Merge:**
+- Gate checklist in `docs/TEAM-GATEWAY-CHECKLIST.md` covers:
+  - Claude and Codex handoff protocols
+  - Memory namespace sharing between platforms
+  - Witness manifest entry requirements
+  - Cross-review sign-off procedures
+
+**Reference:**
+- Link: `docs/TEAM-GATEWAY-CHECKLIST.md`
+- Use when coordinating dual-mode feature development
+- Ensures consistent handoff between platform workers
+
+## Security Fixes (v3.10.x)
+
+**Embedding Quantization (ADR-144):**
+- `decodeEmbedding()` now bounds-checks dims field from blob header
+- Rejects: dims=0, dims > 8192, truncated payloads
+- Protects against DoS via crafted inline: blobs
+
+**Dependency Hardening:**
+- protobufjs ≥7.5.6 (fixes GHSA-xq3m-2v4x-88gg, GHSA-66ff-xgx4-vchm, GHSA-2pr8-phx7-x9h3)
+- All critical CVEs in transitive deps traced and overridden at root/wrapper
+
 ## Support
 
 - Documentation: https://github.com/ruvnet/claude-flow
 - Issues: https://github.com/ruvnet/claude-flow/issues
+- Team Gateway: `docs/TEAM-GATEWAY-CHECKLIST.md`
 
 ---
 
