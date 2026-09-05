@@ -829,6 +829,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # Database path for memory subsystem (CLI-flag precedence: --path > env var > default)
 ```
 
 ## Doctor Health Checks
@@ -844,6 +845,30 @@ Run `npx claude-flow@v3alpha doctor` to check:
 - MCP servers
 - Disk space
 - TypeScript installation
+
+## CI Guards & Audit Scripts
+
+The repository runs three strict CI audit scripts (all wired to v3-ci.yml, all fail-closed):
+
+1. **audit-wrapper-dep-ranges.mjs** (#2127)
+   - Ensures ruflo wrapper's `@claude-flow/cli` dependency range covers actual CLI version
+   - Prevents version mismatch where `npx ruflo` runs stale CLI
+
+2. **audit-plugin-hooks-cross-platform.mjs** (#2132)
+   - Validates plugin hooks work cross-platform (Windows/macOS/Linux)
+   - Enforces path normalization for CI/CD reliability
+
+3. **audit-env-var-precedence.mjs** (ADR-125 / ADR-130)
+   - **Requirement**: All CLAUDE_FLOW_* / RUFLO_* env var reads in v3/cli/src + plugins/ must have CLI-flag precedence documented
+   - **Enforcement**: Scans for missing `--flag` precedence documentation
+   - **Allow-list**: Escape-hatch vars (CI knobs, credentials, process-internal signals) with comments
+   - **Job**: Wired into v3-ci.yml `plugin-package-audit`
+   - **Precedence rule**: CLI flag > env var > default value (must be coded and documented)
+
+When adding new environment variables or CLI flags:
+- Document the precedence clearly in code comments
+- If env var should override a flag, document why
+- If unsure, add to allow-list with a comment explaining escape-hatch usage
 
 ## Quick Setup
 
