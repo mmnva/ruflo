@@ -9,7 +9,13 @@ CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
 CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
+CLAUDE_FLOW_DB_PATH=./data/memory  # Alternative path for memory operations (takes precedence over CLAUDE_FLOW_MEMORY_PATH)
+RUFLO_HOOK_SKIP_NPX=1  # Windows-compatible: skip npx fallback in hook shim (useful for CI with cold cache)
 ```
+
+**New in v3.10.x (May 2026):**
+- `CLAUDE_FLOW_DB_PATH`: Primary env var for memory operations (precedence: --path flag > CLAUDE_FLOW_DB_PATH > CLAUDE_FLOW_MEMORY_PATH > default)
+- `RUFLO_HOOK_SKIP_NPX`: Set to 1 to skip npx fallback in plugin hooks (Windows CI compatibility)
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 

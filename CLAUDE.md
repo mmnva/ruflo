@@ -939,6 +939,10 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 ### Publishing Rules
 
 - MUST publish ALL THREE packages when publishing CLI changes: `@claude-flow/cli`, `claude-flow`, AND `ruflo`
+- **MUST maintain three-way version lockstep** (PR #2151): all three packages (`@claude-flow/cli`, `claude-flow`, `ruflo`) MUST have identical semver versions at all times
+  - The CI guard `scripts/audit-umbrella-version-lockstep.mjs` runs on every push to prevent version drift
+  - This includes `ruflo/package.json` dependency range for `@claude-flow/cli` — must use `^X.Y.Z` where X.Y.Z matches the actual published version
+  - If versions drift (e.g., CLI ships at 3.10.2 but ruflo stays at 3.10.1), a follow-up PR must fix the mismatch to unblock CI
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
@@ -1008,6 +1012,19 @@ git push origin v3.7.1
 gh release create v3.7.1 --title "v3.7.1 — <one-line headline>" \
   --notes-file /tmp/release-notes.md
 ```
+
+## CI Guards & Audit Scripts
+
+The following automated CI guards prevent regressions and enforce configuration rules (added v3.10.x):
+
+| Guard | Location | Purpose | Status |
+|-------|----------|---------|--------|
+| Version Lockstep | `scripts/audit-umbrella-version-lockstep.mjs` | Ensure all three packages (@claude-flow/cli, claude-flow, ruflo) have identical versions | Strict (blocks merge) |
+| Plugin Hooks Cross-Platform | `scripts/audit-plugin-hooks-cross-platform.mjs` | Prevent POSIX-only patterns (/bin/bash, pipes) in plugin hooks.json | Strict (blocks merge) |
+| Environment Variable Precedence | `scripts/audit-env-var-precedence.mjs` | Ensure CLI --flags take precedence over env vars in all code | Strict (blocks merge) |
+| Wrapper Dep Ranges | `scripts/audit-wrapper-dep-ranges.mjs` | Prevent stale alpha ranges and version mismatches in ruflo's dependency declarations | Strict (blocks merge) |
+
+All four guards run in the `.github/workflows/v3-ci.yml` `dep-audit` job on every push. A failing guard blocks the PR from merging.
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 
