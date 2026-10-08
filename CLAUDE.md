@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
-> 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> **Ruflo v3.10.3** (2026-05-26) — Stable release with security hardening, cross-platform hooks, and version lockstep.
+> 6,000+ commits, 323 MCP tools, 45 CLI commands, 33 plugins, 45 agent roles.
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -38,7 +38,7 @@
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `@claude-flow/cli` | `v3/@claude-flow/cli/` | CLI entry point (26 commands) |
+| `@claude-flow/cli` | `v3/@claude-flow/cli/` | CLI entry point (45 commands) |
 | `@claude-flow/codex` | `v3/@claude-flow/codex/` | Dual-mode Claude + Codex collaboration |
 | `@claude-flow/guidance` | `v3/@claude-flow/guidance/` | Governance control plane |
 | `@claude-flow/hooks` | `v3/@claude-flow/hooks/` | 17 hooks + 12 workers |
@@ -343,7 +343,7 @@ This project is configured with Claude Flow V3 (Anti-Drift Defaults):
 - **HNSW Indexing**: Enabled (150x-12,500x faster)
 - **Neural Learning**: Enabled (SONA)
 
-## V3 CLI Commands (26 Commands, 140+ Subcommands)
+## V3 CLI Commands (45 Commands, 140+ Subcommands)
 
 ### Core Commands
 
@@ -829,6 +829,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # Three-tier precedence: --path flag > env var > default
 ```
 
 ## Doctor Health Checks
@@ -940,6 +941,9 @@ memory_search_unified({ query: "authentication security", limit: 5 })
 
 - MUST publish ALL THREE packages when publishing CLI changes: `@claude-flow/cli`, `claude-flow`, AND `ruflo`
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
+- **VERSION LOCKSTEP** (ADR-020, #2151): All three packages MUST have identical version numbers. CI audit (`scripts/audit-umbrella-version-lockstep.mjs`) enforces this.
+- **ENV VAR PRECEDENCE** (ADR-125, #2144): CLI `--flag` arguments MUST take precedence over `CLAUDE_FLOW_*` / `RUFLO_*` env vars. CI audit (`scripts/audit-env-var-precedence.mjs`) enforces this.
+- **PLUGIN HOOKS CROSS-PLATFORM** (ADR-027, #2132): All plugin `hooks.json` commands MUST support Windows (no `/bin/bash` literals, no POSIX-only pipelines). CI audit (`scripts/audit-plugin-hooks-cross-platform.mjs`) enforces this. Windows-incompatible files are marked `_platform: posix`.
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
 
@@ -998,6 +1002,14 @@ done
 - `ruflo` source is in `/ruflo/` — it depends on `@claude-flow/cli`
 - Also remember to update `ruflo/package.json` overrides when adding new pinned transitives (see #2112 lesson — root overrides do NOT propagate to the published `ruflo` wrapper)
 
+### Team Gateway Checklist (Before Merge)
+
+Documented in `docs/TEAM-GATEWAY-CHECKLIST.md` (#2058, #2105). Before merging any PR:
+- Verify dual-mode Claude/Codex handoff protocol is followed for feature branches
+- Confirm memory namespace sharing is correct and no conflicts exist
+- Add witness manifest entry (`.claude/witness/manifest.md.json`) with change summary
+- Document any new env vars with `--flag` CLI precedence in the feature
+
 ### GitHub Release after publish
 
 Every stable bump SHOULD have a matching `gh release create v<version>` with consolidated release notes pointing at the gist if one exists. Example:
@@ -1008,6 +1020,19 @@ git push origin v3.7.1
 gh release create v3.7.1 --title "v3.7.1 — <one-line headline>" \
   --notes-file /tmp/release-notes.md
 ```
+
+## CI Guards & Audit Scripts
+
+The following automated CI guards prevent regressions and enforce configuration rules (added v3.10.x):
+
+| Guard | Location | Purpose | Status |
+|-------|----------|---------|--------|
+| Version Lockstep | `scripts/audit-umbrella-version-lockstep.mjs` | Ensure all three packages (@claude-flow/cli, claude-flow, ruflo) have identical versions | Strict (blocks merge) |
+| Plugin Hooks Cross-Platform | `scripts/audit-plugin-hooks-cross-platform.mjs` | Prevent POSIX-only patterns (/bin/bash, pipes) in plugin hooks.json | Strict (blocks merge) |
+| Environment Variable Precedence | `scripts/audit-env-var-precedence.mjs` | Ensure CLI --flags take precedence over env vars in all code | Strict (blocks merge) |
+| Wrapper Dep Ranges | `scripts/audit-wrapper-dep-ranges.mjs` | Prevent stale alpha ranges and version mismatches in ruflo's dependency declarations | Strict (blocks merge) |
+
+All four guards run in the `.github/workflows/v3-ci.yml` `dep-audit` job on every push. A failing guard blocks the PR from merging.
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 
