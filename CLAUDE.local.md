@@ -7,9 +7,18 @@ CLAUDE_FLOW_CONFIG=./claude-flow.config.json
 CLAUDE_FLOW_LOG_LEVEL=info
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory/memory.db        # NEW: (#2146) Direct memory DB path
 CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 ```
+
+### CLAUDE_FLOW_DB_PATH Precedence (New in #2146)
+
+When using memory commands (store, retrieve, search, list, delete, stats):
+1. `--path` flag (highest priority)
+2. `CLAUDE_FLOW_DB_PATH` env var
+3. `CLAUDE_FLOW_MEMORY_PATH/memory.db` (fallback)
+4. `cwd/.swarm/memory.db` (default root)
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 
@@ -23,6 +32,23 @@ Steps to add a plugin:
 4. Update `LIVE_REGISTRY_CID` in discovery.ts and the `demoPluginRegistry` fallback
 
 Security: NEVER hardcode API keys. Source from .env at runtime. NEVER commit .env.
+
+## Team Gateway Checklist (New in #2146)
+
+See `docs/TEAM-GATEWAY-CHECKLIST.md` for:
+- Before-merge gates: lint, type-check, tests, smoke tests, witness manifest, semver
+- Dual-mode Claude/Codex handoff protocols
+- Memory namespace sharing conventions
+- Witness manifest entry requirements per merge
+- Gateway logging and audit scope
+
+Key commands for team merges:
+```bash
+npm run lint && npx tsc --noEmit && npm test
+node scripts/smoke-*.mjs                            # All smoke tests
+npx ruflo@latest sign --message "merge: <PR> — <description>"
+npx ruflo@latest verify                             # Verify dist after install
+```
 
 ## Doctor Health Checks
 
