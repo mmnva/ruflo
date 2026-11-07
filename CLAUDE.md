@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10+
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
+> **Ruflo v3.10** (2026-05-26) — Stable release with graph intelligence backend, rvagent integration, and DB path configuration.
 > 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -829,6 +829,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # (v3.10+) Custom database path — overrides default; --path flag takes precedence
 ```
 
 ## Doctor Health Checks
