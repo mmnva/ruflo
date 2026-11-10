@@ -7,6 +7,7 @@ CLAUDE_FLOW_CONFIG=./claude-flow.config.json
 CLAUDE_FLOW_LOG_LEVEL=info
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # (v3.10+) Custom database path
 CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 ```
