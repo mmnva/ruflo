@@ -7,9 +7,17 @@ CLAUDE_FLOW_CONFIG=./claude-flow.config.json
 CLAUDE_FLOW_LOG_LEVEL=info
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory/db  # Three-tier: --flag > env var > default
 CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 ```
+
+### CLI Flag Precedence Rule
+When adding a new CLAUDE_FLOW_* env var:
+- CLI flags MUST take precedence (explicit > implicit)
+- Document: `// --flag > ENV_VAR > default`
+- CI audit enforces this (fails closed)
+Example: `const path = args.dbPath || process.env.CLAUDE_FLOW_DB_PATH || './data/memory/db'`
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 
@@ -23,6 +31,22 @@ Steps to add a plugin:
 4. Update `LIVE_REGISTRY_CID` in discovery.ts and the `demoPluginRegistry` fallback
 
 Security: NEVER hardcode API keys. Source from .env at runtime. NEVER commit .env.
+
+## CI Audit Guards (NEW — 2026-05-26)
+
+Three new strict audits block PRs if violations found:
+
+1. **audit-umbrella-version-lockstep.mjs** (#2151/#2153)
+   - All 3 packages (@claude-flow/cli, claude-flow, ruflo) must be identical version
+   - Ruflo's dep range must include cli's actual version
+   
+2. **audit-env-var-precedence.mjs** (#2144/ADR-125)
+   - Scans CLAUDE_FLOW_* reads for missing CLI-flag precedence documentation
+   - Prevents env var from silently ignoring explicit --flags
+   
+3. **audit-plugin-hooks-cross-platform.mjs** (#2132)
+   - Blocks /bin/bash literals, POSIX pipes (jq, xargs, tr), .sh invocations
+   - Catches exit 126 failures on Windows before shipping
 
 ## Doctor Health Checks
 

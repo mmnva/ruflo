@@ -701,6 +701,27 @@ npx claude-flow@v3alpha hooks task-completed -i task-123 --train-patterns true
 6. **Graceful shutdown** — send `{ type: "shutdown_request" }` before TeamDelete
 7. **Lead synthesizes** — when agents complete, review ALL results before responding to user
 
+### Cross-Platform Hooks Audit (NEW — #2132 / Windows Compatibility)
+
+Hooks must work on macOS, Linux, AND Windows. CI audit (`scripts/audit-plugin-hooks-cross-platform.mjs`) catches:
+
+**Blocked patterns** (exit 126 on Windows):
+- `/bin/bash` or `/bin/sh` literals (don't exist on Windows)
+- POSIX-only pipelines: `| jq`, `xargs -0`, `tr '\n' '\0'`
+- `.sh` scripts in `command` field (require bash interpreter)
+
+**Remedy**:
+- Use `plugins/<name>/scripts/hook-name.cjs` (Node.js, cross-platform)
+- Mark POSIX-only files with `_platform: "posix"` in hooks.json if unavoidable
+
+Example (hooks.json):
+```json
+{
+  "_platform": "posix",
+  "command": "bash scripts/posix-only.sh"
+}
+```
+
 ## V3 Hooks System (17 Hooks + 12 Workers)
 
 ### Hook Categories
@@ -826,9 +847,25 @@ CLAUDE_FLOW_MCP_PORT=3000
 CLAUDE_FLOW_MCP_HOST=localhost
 CLAUDE_FLOW_MCP_TRANSPORT=stdio
 
-# Memory
+# Memory (NEW — #2105)
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=/path/to/db  # Three-tier precedence: --path flag > env var > default
+```
+
+### Environment Variable Precedence Rule (NEW — ADR-125 / #2144)
+
+**CRITICAL**: When adding a new `CLAUDE_FLOW_*` or `RUFLO_*` environment variable:
+
+1. CLI flags MUST take precedence over env vars (explicit >implicit)
+2. Document the precedence in code comments: `// --flag-name > ENV_VAR > default`
+3. The `scripts/audit-env-var-precedence.mjs` CI guard verifies this across all CLAUDE_FLOW_* reads
+4. Precedence violations block CI (fail closed)
+
+Example:
+```typescript
+// --db-path > CLAUDE_FLOW_DB_PATH > ./data/memory/db
+const dbPath = args.dbPath || process.env.CLAUDE_FLOW_DB_PATH || './data/memory/db';
 ```
 
 ## Doctor Health Checks
@@ -1008,6 +1045,18 @@ git push origin v3.7.1
 gh release create v3.7.1 --title "v3.7.1 — <one-line headline>" \
   --notes-file /tmp/release-notes.md
 ```
+
+### Version Lockstep Guard (NEW — #2151 / #2153)
+
+**CRITICAL RULE**: @claude-flow/cli, claude-flow umbrella, and ruflo MUST ship at identical versions.
+
+- When v3.10.2 shipped but cli stayed at 3.10.1, `npx ruflo --version` printed the wrong version (#2151)
+- CI now enforces this via `scripts/audit-umbrella-version-lockstep.mjs` 
+- This audit:
+  - Verifies all three `package.json` versions are identical
+  - Verifies ruflo's `@claude-flow/cli` dep range includes the cli's actual version
+  - Blocks any drift from reaching a release
+- **Action**: Always bump all three packages together — never let them fall out of sync
 
 ## Plugin Registry Maintenance (IPFS/Pinata)
 
