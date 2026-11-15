@@ -1,8 +1,8 @@
-# Claude Code Configuration - Ruflo v3.5
+# Claude Code Configuration - Ruflo v3.10.3
 
-> **Ruflo v3.6** (2026-04-29) — Stable release with agent federation and comms-first coordination.
+> **Ruflo v3.10.3** (2026-05-26) — Stable release with witness verification, team gateway protocol, and cross-platform hooks.
 > 6,000+ commits, 314 MCP tools, 16 agent roles + custom types, 19 AgentDB controllers, 21 native plugins.
-> Packages: `@claude-flow/cli@3.6.10`, `claude-flow@3.6.10`, `ruflo@3.6.10`
+> Packages: `@claude-flow/cli@3.10.3`, `claude-flow@3.10.3`, `ruflo@3.10.3`
 
 ## Behavioral Rules (Always Enforced)
 
@@ -14,6 +14,7 @@
 - Never continuously check status after spawning a swarm — wait for results
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
+- **For team workflows**: Follow [Team Gateway Checklist](./docs/TEAM-GATEWAY-CHECKLIST.md) — requires witness manifest entry per merge and before-merge gates
 
 ## File Organization
 
@@ -829,6 +830,7 @@ CLAUDE_FLOW_MCP_TRANSPORT=stdio
 # Memory
 CLAUDE_FLOW_MEMORY_BACKEND=hybrid
 CLAUDE_FLOW_MEMORY_PATH=./data/memory
+CLAUDE_FLOW_DB_PATH=./data/memory  # Precedence: --path flag > CLAUDE_FLOW_DB_PATH > default root
 ```
 
 ## Doctor Health Checks
